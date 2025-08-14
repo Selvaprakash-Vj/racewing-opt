@@ -1,0 +1,5 @@
+# Parametric geometry inputs (example)
+chord: 0.3        # m
+span:  0.8        # m
+aoa_deg: 3        # degrees (baseline)
+thickness_mm: 2.5 # structural shell thickness

@@ -1,0 +1,30 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 | OpenFOAM                                       |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    location    "system";
+    object      surfaces;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+type                surfaces;
+libs                ("libsampling.so");
+enabled             true;
+interpolationScheme cellPoint;
+surfaceFormat       vtk;
+fields              (p);
+
+surfaces
+(
+  wingSurf
+  {
+    type        patch;
+    patches     (wing);   // <-- change "wing" if your patch has a different name
+    triangulate true;
+  }
+);
+// ************************************************************************* //

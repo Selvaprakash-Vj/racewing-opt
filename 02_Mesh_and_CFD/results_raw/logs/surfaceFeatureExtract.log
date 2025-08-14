@@ -1,0 +1,72 @@
+/*---------------------------------------------------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  2506                                  |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+Build  : _615aae61-20250627 OPENFOAM=2506 version=2506
+Arch   : "LSB;label=32;scalar=64"
+Exec   : surfaceFeatureExtract
+Date   : Aug 14 2025
+Time   : 08:35:24
+Host   : 44c79399d298
+PID    : 7863
+I/O    : uncollated
+Case   : /case/of_case
+nProcs : 1
+trapFpe: Floating point exception trapping enabled (FOAM_SIGFPE).
+fileModificationChecking : Monitoring run-time modified files using timeStampMaster (fileModificationSkew 5, maxFileModificationPolls 20)
+allowSystemOperations : Allowing user-supplied system call operations
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+Create time
+
+
+Note: Feature line extraction only valid on closed manifold surfaces
+
+Reading surfaceFeatureExtractDict
+
+Surfaces     : wing.stl
+Output       : wing
+Load options : offset
+Write options: writeObj=off writeVTK=off
+
+Statistics:
+Triangles    : 964 in 1 region(s)
+Vertices     : 484
+Bounding Box : (0.000102696 -0.0179797 -0.4) (0.299711 0.0198596 0.4)
+
+Constructing feature set from included angle 150
+Selecting edges based purely on geometric tests: no
+
+Initial Feature set:
+    points : 21
+    edges  : 281
+    of which
+        region edges   : 8
+        external edges : 136
+        internal edges : 137
+
+Final Feature set:
+    points : 260
+    of which
+        convex             : 0
+        concave            : 0
+        mixed              : 21
+        non-feature        : 239
+    edges  : 281
+    of which
+        external edges     : 137
+        internal edges     : 136
+        flat edges         : 0
+        open edges         : 8
+        multiply connected : 0
+
+Writing extendedFeatureEdgeMesh to "/case/of_case/constant/extendedFeatureEdgeMesh/wing.extendedFeatureEdgeMesh"
+
+Writing featureEdgeMesh to "/case/of_case/constant/triSurface/wing.eMesh"
+ExecutionTime = 0.01 s  ClockTime = 0 s
+
+End
+

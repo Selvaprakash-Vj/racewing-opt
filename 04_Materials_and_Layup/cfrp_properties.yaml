@@ -1,0 +1,7 @@
+# Example CFRP orthotropic ply properties (update with your data)
+E1: 135e9
+E2: 10e9
+G12: 5e9
+nu12: 0.3
+rho: 1600
+ply_thickness: 0.00025

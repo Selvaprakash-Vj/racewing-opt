@@ -1,0 +1,80 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  2506                                  |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    location    "system";
+    object      controlDict;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+application     simpleFoam;
+
+startFrom       startTime;
+startTime       0;
+
+stopAt          endTime;
+endTime         2000;
+
+deltaT          1;
+
+writeControl    timeStep;
+writeInterval   2000;
+
+purgeWrite      0;
+writeFormat     ascii;
+writePrecision  6;
+writeCompression off;
+timeFormat      general;
+timePrecision   6;
+
+libs ("libutilityFunctionObjects.so" "libsampling.so" "libforces.so");
+
+// Force coefficients + surface pressure export
+functions
+{
+    forceCoeffs
+    {
+        type                forceCoeffs;
+        functionObjectLibs  ("libforces.so");
+        patches             (wing);      // must match your STL patch name
+        rho                 rhoInf;
+        rhoInf              1.20;        // kg/m^3
+        liftDir             (0 1 0);
+        dragDir             (1 0 0);
+        CofR                (0 0 0);
+        magUInf             69.44;       // 250 km/h
+        Aref                0.4;         // Sref
+        lRef                1;
+        outputControl       timeStep;
+        outputInterval      100;
+    }
+
+    surfaces
+    {
+        type                surfaces;
+        libs                ("libsampling.so");
+        interpolationScheme cellPoint;
+        surfaceFormat       vtk;
+        fields              (p);
+        writeControl        timeStep;
+        writeInterval       2000;
+        surfaces
+        (
+            wingSurf
+            {
+                type        patch;
+                patches     (wing);
+                triangulate true;
+            }
+        );
+    }
+}
+// ************************************************************************* //
