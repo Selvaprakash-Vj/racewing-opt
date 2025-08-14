@@ -1,0 +1,28 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 | OpenFOAM                                       |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    location    "system";
+    object      sampleDict;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+interpolationScheme cellPoint;
+setFormat           vtk;
+
+surfaces
+(
+    wingSurf
+    {
+        type        patch;
+        patches     (wing);     // <-- change if your patch name differs
+        triangulate true;
+    }
+);
+
+fields (p);
+// ************************************************************************* //

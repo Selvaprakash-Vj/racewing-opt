@@ -1,0 +1,32 @@
+*HEADING
+Rear wing shell – fixed laminate
+*INCLUDE, INPUT=mesh.inp               ;# your shell mesh (generated separately)
+*MATERIAL, NAME=CFRP
+*ELASTIC, TYPE=ENGINEERING CONSTANTS
+E1, E2, E3, NU12, NU13, NU23, G12, G13, G23
+*DENSITY
+1.55e3
+*SHELL SECTION, ELSET=ALL_SHELL, MATERIAL=CFRP
+t_shell
+*BOUNDARY
+MOUNTNODES, ENCASTRE
+*CLOAD                                   ;# inertial loads are added by script
+...
+*STEP, NLGEOM=NO
+*STATIC
+CLOADS/PRESSURES HERE                    ;# mapped pressure from CFD
+*NODE PRINT, NSET=TIPNODES
+U
+*EL PRINT, ELSET=ALL_SHELL
+S, E
+*END STEP
+
+*STEP
+*BUCKLE
+10, , ,                                 ;# 10 eigenvalues
+*END STEP
+
+*STEP
+*FREQUENCY, EIGENSOLVER=LANCZOS
+10,
+*END STEP

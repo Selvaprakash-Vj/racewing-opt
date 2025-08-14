@@ -1,0 +1,78 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 | OpenFOAM                                       |
+\*---------------------------------------------------------------------------*/
+FoamFile{version 2.0;format ascii;class dictionary;location "system";object snappyHexMeshDict;}
+
+castellatedMesh true;
+snap            true;
+addLayers       false;          // off for speed
+mergeTolerance  1e-6;
+
+geometry
+{
+    wing.stl { type triSurfaceMesh; name wing; }
+}
+
+castellatedMeshControls
+{
+    maxGlobalCells        300000;
+    maxLocalCells         80000;
+    minRefinementCells    0;
+    nCellsBetweenLevels   2;
+
+    allowFreeStandingZoneFaces true;
+
+    features ();                    // feature-based refinement OFF
+
+    refinementSurfaces
+    {
+        wing
+        {
+            level (2 2);            // coarse & quick
+            patchInfo { type wall; }
+        }
+    }
+
+    refinementRegions { }           // required, empty ok
+    resolveFeatureAngle 180;        // ignore sharp edges
+    locationInMesh (0 0 0.2);
+}
+
+snapControls
+{
+    nSmoothPatch 2;
+    tolerance    2.0;
+    nSolveIter   10;
+    nRelaxIter   3;
+    nFeatureSnapIter 0;             // no feature snapping
+}
+
+/* must exist even if addLayers=false */
+addLayersControls { }
+
+/* --- FULL QUALITY BLOCK (includes minVol etc.) --- */
+meshQualityControls
+{
+    maxNonOrtho         75;
+    maxBoundarySkewness 20;
+    maxInternalSkewness 4;
+    maxConcave          80;
+
+    minVol              1e-13;
+    minTetQuality       1e-9;
+    minArea             -1;         // disabled
+    minTwist            0.02;
+    minDeterminant      0.001;
+    minFaceWeight       0.02;
+    minVolRatio         0.01;
+    minTriangleTwist    -1;         // disabled
+
+    nSmoothScale        4;
+    errorReduction      0.75;
+
+    relaxed
+    {
+        maxNonOrtho 85;
+    }
+}
+// ************************************************************************* //

@@ -1,0 +1,37 @@
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# OpenFOAM case outputs
+of_case/0/
+of_case/[1-9]*/        # time folders like 1,2,10,87...
+of_case/processor*/    # parallel runs
+of_case/constant/polyMesh/
+of_case/logs/
+of_case/postProcessing/
+of_case/VTK/
+
+# But keep input dictionaries & STL
+!of_case/system/
+!of_case/constant/
+of_case/constant/triSurface/*.stl
+
+# CalculiX outputs
+fea/*.dat
+fea/*.frd
+fea/*.sta
+fea/*.12d
+fea/*.cvg
+
+# Keep inputs we generate
+!fea/*.inp
+
+# Editor/project cruft
+*.swp
+*.swo
+.idea/
+.vscode/

@@ -1,0 +1,8 @@
+Vref_mps: 69.44        # 250 km/h
+rho_ref: 1.20          # kg/m^3 (sea-level cool day)
+Sref: 0.400            # m^2 (use your wing planform area; tweak later)
+CL_target: 0.0132        # pick a starting target; we’ll refine after baseline
+CD_ref: 0.0437           # leave null until you run the baseline CFD
+delta_max_mm: 10       # tip deflection limit
+f_min_hz: 70           # first natural frequency lower bound
+buckling_min: 1.5      # eigen-buckling safety factor
