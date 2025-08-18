@@ -1,30 +1,37 @@
 #!/usr/bin/env bash
-set -euo pipefail
-caseDir="${1:-of_case}"
-pushd "$caseDir" >/dev/null
+set -e -o pipefail
+CASE=${1:-of_case}
 
-# ensure logs is a directory
-[ -f logs ] && rm -f logs
-mkdir -p logs
+# Load OpenFOAM (keep -u off while sourcing)
+set +u
+source /usr/lib/openfoam/*/etc/bashrc 2>/dev/null || { echo "[err] could not source OpenFOAM bashrc" >&2; exit 2; }
+set -u
 
-# clean old mesh/results
-rm -rf constant/polyMesh processor* postProcessing 2>/dev/null || true
+CASE="$(realpath "$CASE")"
+mkdir -p "$CASE/logs"
+echo "[info] CASE=$CASE"
 
-# 1) feature edges
-surfaceFeatureExtract > logs/surfaceFeatureExtract.log 2>&1 || true
+# Run solver, stream to screen + log
+set +e
+simpleFoam -case "$CASE" 2>&1 | tee "$CASE/logs/simpleFoam.log"
+rc=${PIPESTATUS[0]}
+set -e
+if [[ $rc -ne 0 ]]; then
+  echo "[err] simpleFoam failed — see $CASE/logs/simpleFoam.log"
+  tail -n 80 "$CASE/logs/simpleFoam.log" || true
+  exit 1
+fi
+echo "[ok] simpleFoam finished"
 
-# 2) base mesh
-blockMesh > logs/blockMesh.log 2>&1
+# Latest written time (int or decimal)
+LT=$(ls -1 "$CASE" | egrep '^[0-9]+(\.[0-9]+)?$' | sort -g | tail -1 || true)
 
-# 3) snap + layers
-snappyHexMesh -overwrite > logs/snappyHexMesh.log 2>&1
+# Use ABSOLUTE dict path for postProcess
+if [[ -n "${LT:-}" && -f "$CASE/system/post.fo" ]]; then
+  echo "[info] postProcess time=$LT, dict=$CASE/system/post.fo"
+  postProcess -case "$CASE" -time "$LT" -dict "$CASE/system/post.fo" -func wingSurf -field p || echo "[warn] postProcess failed"
+else
+  echo "[warn] no time dirs or missing $CASE/system/post.fo — skipping postProcess"
+fi
 
-# 4) initialise fields
-rm -rf 0 2>/dev/null || true
-cp -r 0.orig 0
-
-# 5) steady RANS
-simpleFoam > logs/simpleFoam.log 2>&1
-
-popd >/dev/null
-echo "[ok] CFD done. See ${caseDir}/logs and ${caseDir}/postProcessing/"
+echo "[ok] CFD done. See $CASE/logs and $CASE/postProcessing/"

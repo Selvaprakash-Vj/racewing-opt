@@ -182,46 +182,6 @@ def main():
         print(f"[ok] Appended results → {results_dir/'summary.csv'}")
         print(f"[info] outbase: {outbase_abs}")
 
-# ==== final override: read Cd/Cl from simpleFoam.log (robust) ====
-def parse_force_coeffs():
-    """
-    Parse Cd/Cl from of_case/logs/simpleFoam.log by reading the last
-    'forceCoeffs write:' block. Ignore malformed coefficient.dat files.
-    """
-    import re
-    logp = CASE / "logs" / "simpleFoam.log"
-    Cd = Cl = None
-    note = "from simpleFoam.log"
-    if logp.exists():
-        block_started = False
-        last_vals = {}
-        # match lines like 'Cd:  0.0383373' (grab first numeric)
-        scalar = re.compile(r'^\s*([A-Za-z][A-Za-z()]+)\s*:\s*([-+0-9.eE]+)')
-        with open(logp, "r", errors="ignore") as fp:
-            for raw in fp:
-                line = raw.strip()
-                # detect block header
-                if "forceCoeffs" in line and "write" in line:
-                    block_started = True
-                    last_vals = {}
-                    continue
-                if not block_started:
-                    continue
-                m = scalar.match(line)
-                if m:
-                    key = m.group(1)
-                    try:
-                        val = float(m.group(2))
-                        last_vals[key] = val
-                    except Exception:
-                        pass
-        # prefer explicit Cd/Cl; else try front+rear
-        if "Cd" in last_vals and "Cl" in last_vals:
-            Cd, Cl = last_vals["Cd"], last_vals["Cl"]
-        elif ("Cd(f)" in last_vals and "Cd(r)" in last_vals) or ("Cl(f)" in last_vals and "Cl(r)" in last_vals):
-            Cd = (last_vals.get("Cd(f)", 0.0) + last_vals.get("Cd(r)", 0.0))
-            Cl = (last_vals.get("Cl(f)", 0.0) + last_vals.get("Cl(r)", 0.0))
-    return Cd or 0.0, Cl or 0.0, note
 if __name__ == "__main__":
     main()
 

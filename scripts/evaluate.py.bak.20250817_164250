@@ -1,0 +1,183 @@
+#!/usr/bin/env python3
+import argparse, os, re, subprocess, sys, time, csv
+
+def run(cmd, **popen_kw):
+    print(f"[RUN] {' '.join(cmd)}")
+    cp = subprocess.run(cmd, text=True, capture_output=True, **popen_kw)
+    if cp.returncode != 0:
+        print(cp.stdout, end="")
+        print(cp.stderr, file=sys.stderr, end="")
+        raise SystemExit(f"[err] command failed: {' '.join(cmd)}")
+    # show short tail to keep logs readable
+    if cp.stdout.strip():
+        print(cp.stdout.splitlines()[-1] if len(cp.stdout.splitlines())>0 else "")
+    return cp
+
+def latest_time_dir(case):
+    tdirs = []
+    for name in os.listdir(case):
+        try:
+            # OpenFOAM time dirs are numeric (ints/floats)
+            float(name)
+            tdirs.append(name)
+        except: 
+            pass
+    if not tdirs:
+        raise FileNotFoundError("No time directories found in case.")
+    t = max(tdirs, key=lambda s: float(s))
+    return t
+
+def parse_cl_cd(log_path):
+    # very tolerant: pick last occurrence of Cd/Cl patterns
+    Cl = Cd = None
+    if not os.path.exists(log_path):
+        return Cl, Cd
+    with open(log_path,'r',errors='ignore') as f:
+        for line in f:
+            # common prints like "Cl = 0.123", "Cd = 0.045"
+            m1 = re.search(r'\bCl\s*=\s*([-+eE0-9.]+)', line)
+            m2 = re.search(r'\bCd\s*=\s*([-+eE0-9.]+)', line)
+            if m1: Cl = float(m1.group(1))
+            if m2: Cd = float(m2.group(1))
+    return Cl, Cd
+
+def parse_dat(dat_path):
+    """Parse CalculiX .dat for max |U| and max |S| magnitudes.
+       Looks for:
+         'displacements (vx,vy,vz) for set ALL ...'
+         'stresses (elem, integ.pnt.,sxx,syy,szz,sxy,sxz,syz) ...'
+    """
+    if not os.path.exists(dat_path):
+        return None, None
+    maxU = None
+    maxS = None
+    inU = False
+    inS = False
+    with open(dat_path,'r',errors='ignore') as f:
+        for raw in f:
+            line = raw.rstrip('\n')
+            if 'displacements (vx,vy,vz) for set ALL' in line:
+                inU, inS = True, False
+                continue
+            if line.startswith('stresses (elem'):
+                inU, inS = False, True
+                continue
+            if inU:
+                # displacement rows in .dat are not always printed per node in CCX;
+                # many decks omit *NODE PRINT, so .dat might not include them.
+                # If present, they start with an integer node id and 3 floats.
+                if re.match(r'^\s*\d+', line):
+                    toks = line.split()
+                    # be defensive: find last three float-like tokens
+                    vals = [t for t in toks if re.match(r'^[-+0-9.eE]+$', t)]
+                    if len(vals) >= 3:
+                        ux, uy, uz = map(float, vals[-3:])
+                        mag = (ux*ux + uy*uy + uz*uz) ** 0.5
+                        if (maxU is None) or (mag > maxU):
+                            maxU = mag
+                # end U block when a blank or next header appears
+                if not line.strip() or line.startswith('stresses (elem'):
+                    inU = False
+            elif inS:
+                if re.match(r'^\s*\d+', line):
+                    toks = line.split()
+                    # layout: EID   IP   sxx syy szz sxy sxz syz ...
+                    vals = [t for t in toks[2:] if re.match(r'^[-+0-9.eE]+$', t)]
+                    for v in vals[:6]:  # use the first six stress components
+                        a = abs(float(v))
+                        if (maxS is None) or (a > maxS):
+                            maxS = a
+                if not line.strip():
+                    inS = False
+    return maxU, maxS
+
+def ensure_dir(p):
+    os.makedirs(p, exist_ok=True)
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--case", default="of_case")
+    ap.add_argument("--aoa_deg", type=float, default=3.0)
+    ap.add_argument("--thickness", type=float, default=0.0025)
+    ap.add_argument("--outdir", default="fea")
+    ap.add_argument("--tag", default=None, help="optional suffix tag")
+    args = ap.parse_args()
+
+    case = os.path.abspath(args.case)
+    outdir = os.path.abspath(args.outdir)
+    ensure_dir(outdir)
+    ensure_dir(os.path.join(os.getcwd(), "results"))
+
+    print("=== EVALUATE: geometry → CFD → pressure → FEA ===")
+    print(f"AOA={args.aoa_deg} deg | thickness={args.thickness} m\n")
+
+    # 1) geometry
+    stl_path = os.path.join(case, "constant", "triSurface", "wing.stl")
+    ensure_dir(os.path.dirname(stl_path))
+    run(["python3", "scripts/generate_geometry.py",
+         "--aoa_deg", str(args.aoa_deg),
+         "--out", stl_path])
+    print(f"[ok] geometry written: {stl_path}\n")
+
+    # 2) CFD
+    run(["bash", "scripts/run_cfd.sh", case])
+    print(f"[ok] CFD done. See {case}/logs and {case}/postProcessing/\n")
+
+    # 3) pressure export (wing surface)
+    tdir = latest_time_dir(case)
+    post_dict = os.path.join(case, "system", "post.fo")
+    run(["postProcess", "-case", case, "-time", tdir, "-dict", post_dict, "-func", "wingSurf", "-field", "p"])
+    vtp = os.path.join(case, "postProcessing", "wingSurf", tdir, "wingPatch.vtp")
+    if not os.path.exists(vtp):
+        raise SystemExit(f"[err] VTP not found: {vtp}")
+    print(f"[ok] wing pressure surface: {vtp}\n")
+
+    # 4) FEA
+    stamp = time.strftime("%Y%m%d_%H%M%S")
+    stem = f"auto_run_{stamp}" if not args.tag else f"auto_run_{stamp}_{args.tag}"
+    outbase = os.path.join(outdir, stem)
+    run(["python3", "scripts/map_and_run_fea.py",
+         "--surface-vtk", vtp,
+         "--outbase", outbase,
+         "--thickness", str(args.thickness)])
+    dat_path = outbase + ".dat"
+
+    # 5) parse metrics
+    foam_log = os.path.join(case, "logs", "simpleFoam.log")
+    Cl, Cd = parse_cl_cd(foam_log)
+    maxU, maxS = parse_dat(dat_path)
+
+    # 6) append CSV
+    row = {
+        "timestamp": stamp,
+        "aoa_deg": args.aoa_deg,
+        "thickness_m": args.thickness,
+        "Cl": Cl,
+        "Cd": Cd,
+        "maxU_m": maxU,
+        "maxS_Pa": maxS,
+        "outbase": os.path.relpath(outbase)
+    }
+    csv_path = os.path.join("results", "summary.csv")
+    write_header = not os.path.exists(csv_path)
+    with open(csv_path, "a", newline="") as cf:
+        w = csv.DictWriter(cf, fieldnames=list(row.keys()))
+        if write_header: w.writeheader()
+        w.writerow(row)
+    print("\n=== DONE ===")
+    print(f"[ok] Appended results → {csv_path}")
+    print(f"[info] outbase: {outbase}")
+    if Cl is not None and Cd is not None:
+        print(f"[info] Cl={Cl}  Cd={Cd}")
+    if maxU is not None and maxS is not None:
+        print(f"[info] max|U|={maxU} m  max|S|={maxS} Pa")
+
+if __name__ == "__main__":
+    import sys, traceback
+    try:
+        main()
+    except SystemExit:
+        raise
+    except Exception:
+        traceback.print_exc()
+        sys.exit(1)
