@@ -1,0 +1,122 @@
+#!/usr/bin/env python3
+"""
+Speed sweep runner for fixed AoA & thickness.
+
+Default:
+  - AoA = 12.0 deg
+  - thickness = 0.0025 m
+  - speeds = 50, 80, 100 m/s
+
+Usage:
+  python3 scripts/sweep_speed.py
+  python3 scripts/sweep_speed.py --aoa_deg 12 --thickness 0.0025 --speeds 50 80 100
+"""
+
+import argparse, subprocess, csv, time, math
+from pathlib import Path
+
+ROOT = Path("/case")
+SCRIPTS = ROOT / "scripts"
+RESULTS = ROOT / "results"
+EVAL = SCRIPTS / "evaluate.py"
+CSV_PATH = RESULTS / "summary.csv"
+
+def run_eval(aoa, thick, speed):
+    cmd = [
+        "python3", str(EVAL),
+        "--aoa_deg", f"{aoa}",
+        "--thickness", f"{thick}",
+        "--speed_mps", f"{speed}"
+    ]
+    if args.gurney_h_mm:
+        cmd += ["--gurney_h_mm", str(args.gurney_h_mm)]
+    print("[RUN]", " ".join(cmd), flush=True)
+    t0 = time.time()
+    subprocess.run(cmd, cwd=str(ROOT), check=True)
+    dt = time.time() - t0
+    print(f"[ok] speed={speed} m/s done in {dt:.1f}s\n")
+
+def read_latest_rows(aoa, thick, speeds):
+    rows = []
+    if not CSV_PATH.exists():
+        return rows
+    with CSV_PATH.open("r", newline="") as f:
+        r = csv.DictReader(f)
+        for row in r:
+            try:
+                a = float(row.get("aoa_deg", "nan"))
+                t = float(row.get("thickness_m", "nan"))
+                v = float(row.get("speed_mps", "nan"))
+            except:
+                continue
+            if math.isclose(a, aoa, rel_tol=0, abs_tol=1e-6) and math.isclose(t, thick, rel_tol=0, abs_tol=1e-9):
+                if any(math.isclose(v, s, rel_tol=0, abs_tol=0.05) for s in speeds):
+                    rows.append(row)
+    return rows
+
+def print_table(rows):
+    if not rows:
+        print("[warn] no matching rows found in summary.csv yet.")
+        return
+    # column order
+    cols = ["speed_mps","aoa_deg","thickness_m","Cd","Cl","max_disp_m","max_stress_Pa","L_over_D?","timestamp"]
+    # derive L/D if possible
+    for r in rows:
+        try:
+            cd = float(r.get("Cd","nan"))
+            cl = float(r.get("Cl","nan"))
+            r["L_over_D?"] = f"{(cl/(abs(cd)+1e-12)):.3f}" if (cd==cd and cl==cl) else ""
+        except:
+            r["L_over_D?"] = ""
+    # sort by speed
+    rows_sorted = sorted(rows, key=lambda x: float(x.get("speed_mps","inf")))
+    # pretty print
+    w = [cols]
+    for r in rows_sorted:
+        w.append([r.get(c,"") for c in cols])
+    widths = [max(len(str(row[i])) for row in w) for i in range(len(cols))]
+    def line(i): return "  ".join(str(w[i][j]).rjust(widths[j]) for j in range(len(cols)))
+    print("\nSpeed sweep results (matching AoA & thickness):")
+    print(line(0))
+    print("-" * (sum(widths)+2*(len(cols)-1)))
+    for i in range(1, len(w)):
+        print(line(i))
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--aoa_deg", type=float, default=12.0)
+    ap.add_argument("--thickness", type=float, default=0.0025)
+    ap.add_argument("--gurney_h_mm", type=float, default=0.0)
+    ap.add_argument("--speeds", type=float, nargs="+", default=None)
+    ap.add_argument("--max_speed_kph", type=float,
+                    help="If set, auto-generate speeds: 0.5×, 0.8×, 1.0× of this max (converted to m/s)")
+    global args
+    args = ap.parse_args()
+
+    # derive speeds
+    speeds = args.speeds
+    if speeds is None and args.max_speed_kph is not None:
+        vmax = args.max_speed_kph/3.6
+        speeds = [0.5*vmax, 0.8*vmax, 1.0*vmax]
+    if speeds is None:
+        speeds = [50.0, 80.0, 100.0]
+    speeds = [float(f"{v:.3f}") for v in speeds]
+
+    RESULTS.mkdir(exist_ok=True)
+    print(f"=== Speed sweep @ AoA={args.aoa_deg} deg, thickness={args.thickness} m ===")
+    if args.gurney_h_mm:
+        print(f"[note] Gurney height: {args.gurney_h_mm:g} mm")
+
+    for v in speeds:
+        run_eval(args.aoa_deg, args.thickness, v)
+
+    rows = read_latest_rows(args.aoa_deg, args.thickness, speeds)
+
+    ctx = f"AoA={args.aoa_deg:.1f}, t={args.thickness:g} m"
+    if args.gurney_h_mm and args.gurney_h_mm > 0:
+        ctx += f", gurney={args.gurney_h_mm:g} mm"
+    print(f"\n[context] {ctx}")
+    print_table(rows)
+
+if __name__ == "__main__":
+    main()

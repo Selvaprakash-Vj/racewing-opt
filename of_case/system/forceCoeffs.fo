@@ -1,0 +1,32 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox          |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    location    "system";
+    object      forceCoeffs.fo;
+}
+
+functions
+{
+  forceCoeffs
+  {
+    type                forceCoeffs;
+    functionObjectLibs  ("libforces.so");
+    patches             (wing);
+    rho                 rhoInf;
+    rhoInf              1.20;
+    liftDir             (0 1 0);
+    dragDir             (1 0 0);
+    CofR                (0 0 0);
+    magUInf             69.44;
+    Aref                0.4;
+    lRef                1;
+    outputControl       timeStep;
+    outputInterval      1;
+  }
+}

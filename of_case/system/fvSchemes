@@ -1,53 +1,42 @@
-/*--------------------------------*- C++ -*----------------------------------*\
-| =========                 | OpenFOAM                                       |
-\*---------------------------------------------------------------------------*/
 FoamFile
 {
     version     2.0;
     format      ascii;
     class       dictionary;
-    location    "system";
     object      fvSchemes;
 }
-// ------------------------------------------------------------------------- //
-
 ddtSchemes
 {
-    default steadyState;
+    default     steadyState;
 }
-
 gradSchemes
 {
-    default Gauss linear;
+    default     cellLimited Gauss linear 1;
 }
-
 divSchemes
 {
-    div(phi,U)      Gauss upwind;
-    div(phi,k)      Gauss upwind;
-    div(phi,omega)  Gauss upwind;
-    div((nuEff*dev2(T(grad(U))))) Gauss linear;
+    default                             none;
+    div(phi,U)                          Gauss limitedLinearV 0.5;
+    div(phi,k)                          Gauss limitedLinear 0.5;
+    div(phi,omega)                      Gauss limitedLinear 0.5;
+    div(phi,epsilon)                    Gauss limitedLinear 0.5;
+    div(phi,nuTilda)                    Gauss limitedLinear 0.5;
+    div((nuEff*dev2(T(grad(U)))))       Gauss linear;
 }
-
 laplacianSchemes
 {
-    default Gauss linear corrected;
+    default     Gauss linear corrected;
 }
-
 interpolationSchemes
 {
-    default linear;
+    default     linear;
 }
-
 snGradSchemes
 {
-    default corrected;
+    default     corrected;
 }
 
-/* REQUIRED for k-omega SST in your version */
 wallDist
 {
     method meshWave;
 }
-
-// ************************************************************************* //

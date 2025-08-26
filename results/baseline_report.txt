@@ -1,0 +1,27 @@
+Rear-Wing Baseline — 2025-08-19 13:47:53
+========================================================
+
+Best (by L/D, PASS first):
+  AOA (deg)      : 12.0
+  Thickness (m)  : 0.0025
+  Speed (m/s)    : 69.44
+  Cd             : 0.0355826
+  Cl             : 0.0452557
+  L/D            : 1.2718491621952346
+  Max disp (m)   : 0.0004923681158113
+  Max stress (Pa): 9981825.298008025
+  PASS constraints: YES
+  FEA outbase    : /case/fea/auto_run_20250819_132837
+  Timestamp      : 2025-08-19 13:28:37
+
+Files of interest:
+  - summary.csv / summary_table.txt
+  - summary_analyzed.csv / summary_analyzed.txt
+  - FEA: /case/fea/auto_run_20250819_132837.inp / .dat / .frd
+  - CFD log: /case/of_case/logs/simpleFoam.log
+  - Surf VTP: /case/of_case/postProcessing/surfaces/*/wingSurf.vtp
+
+Next suggested steps:
+  1) Speed envelope: test 50, 80, 100 m/s at this AOA/thickness.
+  2) Mount BC: switch clamp → bolt pattern root (more realistic stiffness).
+  3) Material: orthotropic CFRP with layup + orientation.

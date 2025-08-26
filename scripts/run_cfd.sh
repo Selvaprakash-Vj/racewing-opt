@@ -1,37 +1,65 @@
 #!/usr/bin/env bash
-set -e -o pipefail
-CASE=${1:-of_case}
+set -euo pipefail
 
-# Load OpenFOAM (keep -u off while sourcing)
-set +u
-source /usr/lib/openfoam/*/etc/bashrc 2>/dev/null || { echo "[err] could not source OpenFOAM bashrc" >&2; exit 2; }
-set -u
+CASE="${1:-of_case}"
 
-CASE="$(realpath "$CASE")"
+# --- Robust OpenFOAM env: only source if not already available ---
+if ! command -v blockMesh >/dev/null 2>&1; then
+  set +u +e
+  # try common locations quietly
+  if [ -f /usr/lib/openfoam/openfoam2506/etc/bashrc ]; then
+    . /usr/lib/openfoam/openfoam2506/etc/bashrc >/dev/null 2>&1
+  elif [ -f /opt/openfoam8/etc/bashrc ]; then
+    . /opt/openfoam8/etc/bashrc >/dev/null 2>&1
+  elif [ -f /opt/OpenFOAM/OpenFOAM-*/etc/bashrc ]; then
+    . /opt/OpenFOAM/OpenFOAM-*/etc/bashrc >/dev/null 2>&1
+  fi
+  set -e
+fi
+
 mkdir -p "$CASE/logs"
-echo "[info] CASE=$CASE"
+LOG="$CASE/logs/simpleFoam.log"
+MESH_LOG="$CASE/logs/mesh.log"
 
-# Run solver, stream to screen + log
+echo "[info] CASE=$(realpath "$CASE")"
+echo "[info] Meshing: blockMesh → surfaceFeatureExtract → snappyHexMesh -overwrite → checkMesh"
+
+{
+  blockMesh -case "$CASE"
+  surfaceFeatureExtract -case "$CASE"
+  snappyHexMesh -overwrite -case "$CASE"
+  checkMesh -case "$CASE" -allTopology -allGeometry
+  echo "[ok] Meshing done"
+} | tee "$MESH_LOG"
+
+echo "[info] running simpleFoam (startFrom/startTime from controlDict)"
 set +e
-simpleFoam -case "$CASE" 2>&1 | tee "$CASE/logs/simpleFoam.log"
+simpleFoam -case "$CASE" | tee "$LOG"
 rc=${PIPESTATUS[0]}
 set -e
 if [[ $rc -ne 0 ]]; then
-  echo "[err] simpleFoam failed — see $CASE/logs/simpleFoam.log"
-  tail -n 80 "$CASE/logs/simpleFoam.log" || true
+  echo "[err] simpleFoam failed — see $LOG"
   exit 1
 fi
 echo "[ok] simpleFoam finished"
 
-# Latest written time (int or decimal)
-LT=$(ls -1 "$CASE" | egrep '^[0-9]+(\.[0-9]+)?$' | sort -g | tail -1 || true)
-
-# Use ABSOLUTE dict path for postProcess
-if [[ -n "${LT:-}" && -f "$CASE/system/post.fo" ]]; then
-  echo "[info] postProcess time=$LT, dict=$CASE/system/post.fo"
-  postProcess -case "$CASE" -time "$LT" -dict "$CASE/system/post.fo" -func wingSurf -field p || echo "[warn] postProcess failed"
+# post-process surfaces (wing pressure to VTP)
+PP_LOG="$CASE/logs/postProcess.log"
+DICT="$CASE/system/post.fo"
+TIMEARG="-latestTime"
+if [[ -f "$DICT" ]]; then
+  echo "[info] postProcess (latestTime), dict=$DICT"
+  set +e
+  postProcess -case "$CASE" $TIMEARG -dict "$DICT" -func wingSurf -field p | tee "$PP_LOG"
+  rc=${PIPESTATUS[0]}
+  set -e
+  if [[ $rc -eq 0 ]]; then
+    echo "[ok] postProcess surfaces done"
+  else
+    echo "[warn] postProcess failed (see $PP_LOG)"
+  fi
 else
-  echo "[warn] no time dirs or missing $CASE/system/post.fo — skipping postProcess"
+  echo "[warn] no $DICT; skipping postProcess"
 fi
 
 echo "[ok] CFD done. See $CASE/logs and $CASE/postProcessing/"

@@ -1,0 +1,26 @@
+functions
+{
+    forceCoeffs
+    {
+        type            forceCoeffs;
+        libs            ("libforces.so");
+
+        patches         (wing);          // <- your snappy patch name
+        log             true;
+
+        // Incompressible: use rhoInf (do NOT use 'rho' field)
+        rhoInf          1.225;           // kg/m^3
+        CofR            (0 0 0);
+
+        liftDir         (0 1 0);
+        dragDir         (1 0 0);
+        pitchAxis       (0 0 1);
+
+        magUInf         1;               // your freestream speed
+        lRef            1;               // chord ref length
+        Aref            1;               // ref area
+
+        writeControl    timeStep;
+        writeInterval   1;
+    }
+}

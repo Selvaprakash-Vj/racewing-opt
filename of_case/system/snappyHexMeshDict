@@ -10,6 +10,13 @@ mergeTolerance  1e-6;
 
 geometry
 {
+    TEref
+    {
+        type searchableBox;
+        min (0.278162 -0.0332397 -0.45);
+        max (0.308162 0.0571499 0.45);
+    }
+
     wing.stl { type triSurfaceMesh; name wing; }
 }
 
@@ -28,12 +35,18 @@ castellatedMeshControls
     {
         wing
         {
-            level (2 2);            // coarse & quick
+            level (4 5);            // coarse & quick
             patchInfo { type wall; }
         }
     }
 
-    refinementRegions { }           // required, empty ok
+    refinementRegions {     TEref
+    {
+        mode inside;
+        levels ((1E15 5));
+    }
+}
+           // required, empty ok
     resolveFeatureAngle 180;        // ignore sharp edges
     locationInMesh (0 0 0.2);
 }

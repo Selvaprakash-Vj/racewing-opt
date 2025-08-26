@@ -74,5 +74,13 @@ cdf7e925f5746741c316f5fbcf39ad0dfca90775
     }
 }
 
+surfaces
+{
+    p
+    {
+        file            "<case>/postProcessing/surfaces/50/wingSurf.vtp";
+    }
+}
+
 
 // ************************************************************************* //

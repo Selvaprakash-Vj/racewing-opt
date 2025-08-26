@@ -1,5 +1,5 @@
 /*--------------------------------*- C++ -*----------------------------------*\
-| =========                 | OpenFOAM                                       |
+| OpenFOAM functionObject dictionary (for postProcess -func wingSurf)        |
 \*---------------------------------------------------------------------------*/
 FoamFile
 {
@@ -7,31 +7,25 @@ FoamFile
     format      ascii;
     class       dictionary;
     location    "system";
-    object      functions;
+    object      wingSurf;
 }
-// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-functions
-{
-  wingSurf
-  {
-    type                surfaces;
-    libs                ("libsampling.so");
-    enabled             true;
+type            surfaces;
+libs            ("libsampling.so");
+writeControl    timeStep;
+writeInterval   1;
 
-    interpolationScheme cellPoint;
-    surfaceFormat       vtk;          // legacy ASCII .vtk
-    fields              (p);
+interpolationScheme cellPoint;
 
-    surfaces
-    (
-      wingPatch
-      {
-        type        patch;
-        patches     (wing);           // <-- your patch name
-        triangulate true;
-      }
-    );
-  }
-}
-// ************************************************************************* //
+surfaces
+(
+    wing
+    {
+        type            patch;
+        patches         (wing);      // <-- use the new patch name
+        fields          (p);
+        surfaceFormat   vtp;         // write .vtp
+        triangulate     true;
+        interpolate     true;
+    }
+);
